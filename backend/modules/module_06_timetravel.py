@@ -12,6 +12,7 @@ import logging
 from typing import TypedDict, List
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.sqlite import SqliteSaver
+import sqlite3
 from utils.llm_factory import get_llm
 from langchain_core.messages import SystemMessage, HumanMessage
 from utils.cost_tracker import TokenCostTrackerCallbackHandler
@@ -19,7 +20,9 @@ from utils.cost_tracker import TokenCostTrackerCallbackHandler
 logger = logging.getLogger(__name__)
 
 # Shared SQLite checkpointer to persist checkpoints across HTTP requests and prevent RAM OOM
-shared_checkpointer = SqliteSaver.from_conn_string("checkpoints.sqlite")
+_conn = sqlite3.connect("checkpoints.sqlite", check_same_thread=False)
+shared_checkpointer = SqliteSaver(_conn)
+shared_checkpointer.setup()
 
 class State(TypedDict):
     """Time-travel state with step counter and accumulated data."""

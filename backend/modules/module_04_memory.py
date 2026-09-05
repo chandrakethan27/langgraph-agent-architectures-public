@@ -14,6 +14,7 @@ from typing import Annotated, TypedDict, List
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langgraph.checkpoint.sqlite import SqliteSaver
+import sqlite3
 from cachetools import LRUCache
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
 from utils.llm_factory import get_llm
@@ -27,7 +28,9 @@ _user_stores_lock = threading.Lock()
 USER_STORES = LRUCache(maxsize=1000)
 
 # Shared SQLite checkpointer to persist checkpoints across HTTP requests and prevent RAM OOM
-shared_checkpointer = SqliteSaver.from_conn_string("checkpoints.sqlite")
+_conn = sqlite3.connect("checkpoints.sqlite", check_same_thread=False)
+shared_checkpointer = SqliteSaver(_conn)
+shared_checkpointer.setup()
 
 class State(TypedDict):
     """Memory agent state combining message history with user-level facts."""
