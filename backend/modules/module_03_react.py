@@ -109,7 +109,7 @@ def get_graph(api_key: str, model_name: str = "claude-haiku-4-5-20251001"):
     logger.info("Building ReAct agent graph with model=%s", model_name)
     
     if api_key:
-        llm = ChatAnthropic(model=model_name, anthropic_api_key=api_key, callbacks=[cb]).bind_tools(tools)
+        llm = get_llm(model_name, api_key, callbacks=[cb]).bind_tools(tools)
     else:
         llm = None
 
