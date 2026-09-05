@@ -189,31 +189,31 @@ def run_module(req: RunModuleRequest):
     try:
         if mod_id == "module_01":
             graph, cb = module_01_basics.get_graph(api_key, actual_model)
-            result = graph.invoke({"topic": req.input_text, "execution_steps": []})
+            result = graph.invoke({"topic": req.input_text, "execution_steps": []}, config=langsmith_config)
             return {"result": result, "metrics": cb.get_summary()}
 
         elif mod_id == "module_02":
             graph, cb = module_02_routing.get_graph(api_key, actual_model)
-            result = graph.invoke({"input_prompt": req.input_text, "execution_steps": []})
+            result = graph.invoke({"input_prompt": req.input_text, "execution_steps": []}, config=langsmith_config)
             return {"result": result, "metrics": cb.get_summary()}
 
         elif mod_id == "module_03":
             graph, cb = module_03_react.get_graph(api_key, actual_model)
             from langchain_core.messages import HumanMessage
-            result = graph.invoke({"messages": [HumanMessage(content=req.input_text)], "execution_steps": [], "iteration_count": 0})
+            result = graph.invoke({"messages": [HumanMessage(content=req.input_text)], "execution_steps": [], "iteration_count": 0}, config=langsmith_config)
             msgs = [{"type": m.type, "content": extract_text_content(m.content), "tool_calls": getattr(m, "tool_calls", [])} for m in result["messages"]]
             result["messages"] = msgs
             return {"result": result, "metrics": cb.get_summary()}
 
         elif mod_id == "module_03b":
             graph, cb = module_03b_plan_execute.get_graph(api_key, actual_model)
-            result = graph.invoke({"input_query": req.input_text, "execution_steps": []})
+            result = graph.invoke({"input_query": req.input_text, "execution_steps": []}, config=langsmith_config)
             return {"result": result, "metrics": cb.get_summary()}
 
         elif mod_id == "module_04":
             graph, cb = module_04_memory.get_graph(api_key, actual_model)
             from langchain_core.messages import HumanMessage
-            config = {"configurable": {"thread_id": req.thread_id}}
+            config = {"configurable": {"thread_id": req.thread_id}, **langsmith_config}
             result = graph.invoke({"messages": [HumanMessage(content=req.input_text)], "user_id": req.user_id, "execution_steps": []}, config=config)
             msgs = [{"type": m.type, "content": extract_text_content(m.content)} for m in result["messages"]]
             result["messages"] = msgs
@@ -221,7 +221,7 @@ def run_module(req: RunModuleRequest):
 
         elif mod_id == "module_05":
             graph, cb = module_05_hitl.get_graph(api_key, actual_model)
-            config = {"configurable": {"thread_id": req.thread_id}}
+            config = {"configurable": {"thread_id": req.thread_id}, **langsmith_config}
             graph.invoke({"proposed_action": req.input_text, "is_approved": req.is_approved, "execution_steps": []}, config=config)
             state_snapshot = graph.get_state(config)
             
@@ -241,7 +241,7 @@ def run_module(req: RunModuleRequest):
 
         elif mod_id == "module_06":
             graph, cb = module_06_timetravel.get_graph(api_key, actual_model)
-            config = {"configurable": {"thread_id": req.thread_id}}
+            config = {"configurable": {"thread_id": req.thread_id}, **langsmith_config}
             result = graph.invoke({"data": req.input_text, "step_count": 0, "execution_steps": []}, config=config)
             
             history = []
@@ -256,17 +256,17 @@ def run_module(req: RunModuleRequest):
 
         elif mod_id == "module_07":
             graph, cb = module_07_multi_agent.get_graph(api_key, actual_model)
-            result = graph.invoke({"task": req.input_text, "execution_steps": []})
+            result = graph.invoke({"task": req.input_text, "execution_steps": []}, config=langsmith_config)
             return {"result": result, "metrics": cb.get_summary()}
 
         elif mod_id == "module_08":
             graph, cb = module_08_subgraphs.get_graph(api_key, actual_model)
-            result = graph.invoke({"user_document": req.input_text, "execution_steps": []})
+            result = graph.invoke({"user_document": req.input_text, "execution_steps": []}, config=langsmith_config)
             return {"result": result, "metrics": cb.get_summary()}
 
         elif mod_id == "module_09":
             graph, cb = module_09_reflection.get_graph(api_key, actual_model)
-            result = graph.invoke({"prompt": req.input_text, "execution_steps": []})
+            result = graph.invoke({"prompt": req.input_text, "execution_steps": []}, config=langsmith_config)
             return {"result": result, "metrics": cb.get_summary()}
 
         elif mod_id == "module_09b":
@@ -274,7 +274,7 @@ def run_module(req: RunModuleRequest):
             chunks = [c.strip() for c in req.input_text.split(";") if c.strip()]
             if not chunks:
                 chunks = ["Chunk A: Basics of AI", "Chunk B: Neural Networks", "Chunk C: Agentic Workflows"]
-            result = graph.invoke({"input_chunks": chunks, "execution_steps": []})
+            result = graph.invoke({"input_chunks": chunks, "execution_steps": []}, config=langsmith_config)
             return {"result": result, "metrics": cb.get_summary()}
 
         elif mod_id == "module_10":
@@ -283,7 +283,7 @@ def run_module(req: RunModuleRequest):
 
         elif mod_id == "module_11":
             graph, cb = module_11_streaming.get_graph(api_key, actual_model)
-            result = graph.invoke({"prompt": req.input_text, "stream_logs": []})
+            result = graph.invoke({"prompt": req.input_text, "stream_logs": []}, config=langsmith_config)
             return {"result": result, "metrics": cb.get_summary()}
 
         elif mod_id == "module_12":
@@ -310,8 +310,18 @@ def approve_hitl(req: RunModuleRequest):
     actual_model = get_actual_model_string(model_name)
 
     try:
+        langsmith_key = req.langsmith_key.strip() if req.langsmith_key else os.getenv("LANGCHAIN_API_KEY", "")
+        langsmith_config = {}
+        if langsmith_key:
+            try:
+                ls_client = Client(api_key=langsmith_key)
+                tracer = LangChainTracer(project_name="langgraph-agent-architectures", client=ls_client)
+                langsmith_config = {"callbacks": [tracer]}
+            except Exception as e:
+                logger.error("Failed to init LangSmith in approve_hitl: %s", e)
+
         graph, cb = module_05_hitl.get_graph(api_key, actual_model)
-        config = {"configurable": {"thread_id": req.thread_id}}
+        config = {"configurable": {"thread_id": req.thread_id}, **langsmith_config}
 
         graph.update_state(config, {"is_approved": req.is_approved}, as_node="propose_action_node")
         final_res = graph.invoke(None, config=config)
