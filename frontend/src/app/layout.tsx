@@ -38,6 +38,20 @@ export const metadata: Metadata = {
   icons: {
     icon: "https://www.chandrakethan.com/icon.svg",
   },
+  openGraph: {
+    title: "LangGraph Agent Architectures | Chandra Kethan",
+    description: "A comprehensive interactive platform showcasing 14 core AI Agent Architectures implemented using LangGraph.",
+    url: "https://www.chandrakethan.com/langraph-mastery",
+    siteName: "Chandra Kethan",
+    images: [
+      {
+        url: "https://www.chandrakethan.com/og-image.jpg",
+        width: 600,
+        height: 600,
+        alt: "LangGraph Mastery - Chandra Kethan",
+      },
+    ],
+  },
 };
 
 export default function RootLayout({
