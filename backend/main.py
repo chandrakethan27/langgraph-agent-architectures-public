@@ -5,6 +5,8 @@ each demonstrating a distinct agent design pattern (routing, ReAct, HITL,
 multi-agent, reflection, map-reduce, etc.).
 """
 
+from langsmith import Client
+from langchain_core.tracers.langchain import LangChainTracer
 from utils.text_helper import extract_text_content
 from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
@@ -174,9 +176,14 @@ def run_module(req: RunModuleRequest):
     langsmith_key = req.langsmith_key.strip() if req.langsmith_key else os.getenv("LANGCHAIN_API_KEY", "")
     langsmith_config = {}
     if langsmith_key:
-        langsmith_config = {
-            "callbacks": [],  # LangSmith callbacks would be injected here in production
-        }
+        try:
+            ls_client = Client(api_key=langsmith_key)
+            tracer = LangChainTracer(project_name="langgraph-agent-architectures", client=ls_client)
+            langsmith_config = {
+                "callbacks": [tracer],
+            }
+        except Exception as e:
+            logger.error("Failed to initialize LangSmith tracer: %s", e)
         logger.info("LangSmith tracing enabled for module=%s", mod_id)
 
     try:
