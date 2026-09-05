@@ -24,6 +24,7 @@ import {
   ArrowUpRight,
   Sliders,
   Check,
+  Loader2,
 } from 'lucide-react';
 import { AGENT_EXPLANATIONS } from '@/data/agentExplanations';
 
@@ -53,6 +54,44 @@ export default function Home() {
   const [inputText, setInputText] = useState('Build an AI-powered code analysis tool');
   const [langSmithKey, setLangSmithKey] = useState('');
   const [loading, setLoading] = useState(false);
+  const [sessionStarted, setSessionStarted] = useState(false);
+  const [wakingUp, setWakingUp] = useState(false);
+  const [wakeError, setWakeError] = useState('');
+
+  useEffect(() => {
+    if (sessionStorage.getItem('labSessionStarted') === 'true') {
+      setSessionStarted(true);
+    }
+  }, []);
+
+  const handleStartSession = async () => {
+    setWakingUp(true);
+    setWakeError('');
+    try {
+      const maxRetries = 35; // 70 seconds max
+      let retries = 0;
+      while (retries < maxRetries) {
+        try {
+          const res = await fetch(`${API_BASE}/api/health`, { cache: 'no-store' });
+          if (res.ok) {
+            setSessionStarted(true);
+            sessionStorage.setItem('labSessionStarted', 'true');
+            break;
+          }
+        } catch (e) {
+          // keep polling
+        }
+        retries++;
+        await new Promise(r => setTimeout(r, 2000));
+      }
+      if (retries >= maxRetries) {
+        setWakeError('Failed to wake up the backend. Please check your internet or try again.');
+      }
+    } finally {
+      setWakingUp(false);
+    }
+  };
+
   const [settingsOpen, setSettingsOpen] = useState(false);
   const settingsPanelRef = useRef<HTMLDivElement>(null);
   const [sessionId, setSessionId] = useState<string>('');
@@ -214,6 +253,66 @@ export default function Home() {
   const isGemini = selectedModel.includes('gemini');
   const providerName = isGroq ? 'Groq' : isGemini ? 'Gemini' : 'Anthropic';
   const apiPlaceholder = isGroq ? 'gsk_...' : isGemini ? 'AIzaSy...' : 'sk-ant-api03-...';
+
+  if (!sessionStarted) {
+    return (
+      <div className="splash-layout">
+        <div className="splash-container">
+          <div className="splash-header">
+            <div style={{ display: 'inline-flex', padding: 12, background: 'rgba(5, 14, 242, 0.08)', borderRadius: 20, marginBottom: 24, border: '1px solid rgba(5, 14, 242, 0.2)' }}>
+              <Bot size={40} color="var(--accent)" />
+            </div>
+            <h1 style={{ fontSize: 36, fontFamily: 'var(--font-display)', marginBottom: 12 }}>LangGraph Interactive Lab</h1>
+            <p style={{ fontSize: 16, color: 'var(--text-dim)', maxWidth: 500, margin: '0 auto', lineHeight: 1.6 }}>
+              Explore, test, and trace 14 different autonomous agent architectures. This interactive playground lets you see exactly how state flows, tools are executed, and LLMs reason in real-time.
+            </p>
+          </div>
+          
+          <div className="splash-features" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, textAlign: 'left', marginTop: 32, marginBottom: 40 }}>
+            <div className="card-static" style={{ padding: 20, background: 'var(--bg-panel)' }}>
+              <Layers size={18} color="var(--accent)" style={{ marginBottom: 12 }} />
+              <h3 style={{ fontSize: 16, marginBottom: 8 }}>14 Architectures</h3>
+              <p style={{ fontSize: 13, color: 'var(--text-faint)' }}>From simple prompt chains to multi-agent swarms and ReAct execution loops.</p>
+            </div>
+            <div className="card-static" style={{ padding: 20, background: 'var(--bg-panel)' }}>
+              <Activity size={18} color="var(--accent)" style={{ marginBottom: 12 }} />
+              <h3 style={{ fontSize: 16, marginBottom: 8 }}>Live Execution</h3>
+              <p style={{ fontSize: 13, color: 'var(--text-faint)' }}>Watch graph state mutations and tool invocations happen step-by-step.</p>
+            </div>
+          </div>
+
+          {wakeError && (
+            <div style={{ color: 'var(--danger)', fontSize: 14, marginBottom: 16, padding: '12px 16px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: 8, border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+              <ShieldAlert size={16} style={{ display: 'inline', marginRight: 8, verticalAlign: 'text-bottom' }} />
+              {wakeError}
+            </div>
+          )}
+
+          <button 
+            onClick={handleStartSession} 
+            disabled={wakingUp}
+            className="btn btn-primary" 
+            style={{ width: '100%', padding: '16px', fontSize: 16, borderRadius: 12, height: 'auto', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 10, boxShadow: '0 8px 24px rgba(5, 14, 242, 0.3)' }}
+          >
+            {wakingUp ? (
+              <>
+                <Loader2 size={20} className="spin" />
+                Waking up agentic backend... (Render cold start ~50s)
+              </>
+            ) : (
+              <>
+                Initialize Lab Session <ArrowUpRight size={18} />
+              </>
+            )}
+          </button>
+          
+          <div style={{ marginTop: 24, fontSize: 12, color: 'var(--text-faint)' }}>
+            Note: The backend is hosted on a free Render instance and goes to sleep after inactivity. It takes about a minute to spin back up!
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app-layout">
