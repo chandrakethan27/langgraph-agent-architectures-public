@@ -225,8 +225,6 @@ export default function Home() {
               <Logo size={28} color="var(--accent)" />
             </a>
             <div className="brand-breadcrumbs">
-              <a href="https://www.chandrakethan.com" className="brand-author">CHANDRA KETHAN</a>
-              <span className="breadcrumb-slash">/</span>
               <span className="brand-product">LangGraph Agent Architectures</span>
               <span className="brand-badge">Interactive Labs</span>
             </div>
